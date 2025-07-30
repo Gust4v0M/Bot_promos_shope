@@ -5,12 +5,13 @@ import time
 import threading
 import schedule
 from datetime import datetime, timedelta
+from flask import Flask
 
 TOKEN = '8009036600:AAGqvH1-3esgXJsuaq6tK-XNren4CObTv2g'
 CHAT_ID = '-1002737558462'
 EMOJIS = ['🔥', '🤑', '💥', '🎯', '⚡', '💣', '🛍️', '🎁']
 
-# Função que envia a mensagem
+# --- Função de envio de mensagens ---
 def enviar_mensagem_telegram(mensagem):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     payload = {
@@ -21,7 +22,7 @@ def enviar_mensagem_telegram(mensagem):
     response = requests.post(url, data=payload)
     return response.ok
 
-# Agendamento dinâmico com delay
+# --- Agendamento ---
 def agendar_envios(caminho_arquivo_csv, intervalo_minutos=60):
     with open(caminho_arquivo_csv, newline='', encoding='utf-8') as csvfile:
         reader = list(csv.DictReader(csvfile))
@@ -36,10 +37,7 @@ def agendar_envios(caminho_arquivo_csv, intervalo_minutos=60):
         if not link:
             continue
 
-        # Horário para envio
         horario_envio = agora + timedelta(minutes=i * intervalo_minutos)
-
-        # Salva os dados como função a ser executada no horário
         schedule_time = horario_envio.strftime('%H:%M')
 
         def criar_funcao_envio(nome=nome, preco=preco, link=link):
@@ -58,18 +56,23 @@ def agendar_envios(caminho_arquivo_csv, intervalo_minutos=60):
                     print(f"❌ Falha: {nome}")
             return enviar
 
-        # Agenda a função no horário definido
         schedule.every().day.at(schedule_time).do(criar_funcao_envio())
         print(f"🕒 Agendado: {nome} às {schedule_time}")
 
-# Loop de execução para manter o script rodando
 def run_schedule_loop():
     while True:
         schedule.run_pending()
         time.sleep(10)
 
-# --- Execução ---
-agendar_envios("csvs/promos_20250702.csv", intervalo_minutos=35 )
+# --- Flask App para evitar hibernação ---
+app = Flask(__name__)
 
-# Roda a programação em outra thread
-threading.Thread(target=run_schedule_loop).start()
+@app.route('/')
+def home():
+    return "Bot está rodando e pronto pra enviar promoções! 🛍️"
+
+# --- Execução ---
+if __name__ == '__main__':
+    agendar_envios("csvs/promos_20250702.csv", intervalo_minutos=35)
+    threading.Thread(target=run_schedule_loop).start()
+    app.run(host='0.0.0.0', port=10000)
